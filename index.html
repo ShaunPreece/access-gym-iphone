@@ -51,7 +51,11 @@
       <button id="connect">Connect to bike</button>
       <button id="disconnect" disabled>Disconnect</button>
     </div>
-    <p id="unsupported" class="note" hidden>This browser has no Bluetooth. Open this page in the Bluefy app, not Safari.</p>
+    <div class="row">
+      <button id="scanall">Show all Bluetooth devices (test)</button>
+    </div>
+    <p class="note">Use "Show all Bluetooth devices" only to check whether the bike appears in the chooser at all. Pedal first so the bike is broadcasting.</p>
+    <p id="unsupported" class="note" hidden>This browser has no Bluetooth. Open this page in a Web BLE browser (Bluefy) or enable the WebBLE Safari extension. Plain Safari will not work.</p>
   </section>
 
   <section aria-labelledby="su">
@@ -143,13 +147,36 @@ function startTimer(){
 
 function onData(e){ latest = parseBike(e.target.value); render(); }
 
+function reportError(err){
+  var name = (err && err.name) ? err.name : "";
+  var msg = (err && err.message) ? err.message : String(err);
+  if(name==="NotFoundError"){
+    setStatus("No bike was selected, or none appeared in the chooser. Make sure you are pedalling so the bike is broadcasting, then try again. If it still does not show, tap Show all Bluetooth devices to check. (Details: "+msg+")");
+  } else if(name==="SecurityError"){
+    setStatus("Blocked by browser security. The page must be opened over https (a web address), not a local file. (Details: "+msg+")");
+  } else if(name==="NetworkError"){
+    setStatus("Found the bike but the connection dropped or timed out. Keep pedalling and try again. (Details: "+msg+")");
+  } else if(name==="NotSupportedError"){
+    setStatus("This browser does not support the needed Bluetooth feature. Try a different Web BLE browser. (Details: "+msg+")");
+  } else {
+    setStatus("Could not connect ["+(name||"error")+"]: "+msg);
+  }
+}
+
 async function connect(){
-  if(!navigator.bluetooth){ $("unsupported").hidden=false; setStatus("No Bluetooth in this browser. Use Bluefy."); return; }
+  if(!navigator.bluetooth){ $("unsupported").hidden=false; setStatus("No Bluetooth in this browser. Use Bluefy or the WebBLE Safari extension."); return; }
   try{
-    setStatus("Opening the chooser. Pick your bike.");
-    device = await navigator.bluetooth.requestDevice({ filters:[{services:[FTMS]}], optionalServices:[FTMS] });
+    setStatus("Opening the chooser. Make sure you are pedalling, then pick your bike.");
+    // Match the FTMS service OR a name starting with Sport01 (mirrors the
+    // Windows backend's name fallback, since this bike does not always
+    // advertise the FTMS service UUID). optionalServices lets us still use
+    // FTMS after connecting even when the device was matched only by name.
+    device = await navigator.bluetooth.requestDevice({
+      filters:[ {services:[FTMS]}, {namePrefix:"Sport01"} ],
+      optionalServices:[FTMS]
+    });
     device.addEventListener("gattserverdisconnected", function(){ setStatus("Disconnected."); $("connect").disabled=false; $("disconnect").disabled=true; if(timer) clearInterval(timer); });
-    setStatus("Connecting...");
+    setStatus("Connecting to "+(device.name||"bike")+"...");
     var server = await device.gatt.connect();
     var svc = await server.getPrimaryService(FTMS);
     var ch = await svc.getCharacteristic(IBD);
@@ -159,13 +186,24 @@ async function connect(){
     $("connect").disabled=true; $("disconnect").disabled=false;
     startTimer();
   }catch(err){
-    setStatus("Could not connect: "+(err && err.message ? err.message : err));
+    reportError(err);
   }
 }
+
+async function scanAll(){
+  if(!navigator.bluetooth){ $("unsupported").hidden=false; setStatus("No Bluetooth in this browser. Use Bluefy or the WebBLE Safari extension."); return; }
+  try{
+    setStatus("Opening the chooser with ALL nearby Bluetooth devices. Pedal the bike, then pick whatever looks like it to identify it.");
+    var d = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:[FTMS] });
+    setStatus("You picked: \""+(d.name||"(no name)")+"\". If your bike shows here but not under Connect, the filter is the issue and we can fix it. If it never shows here even while pedalling, it is a Bluetooth range or pairing issue.");
+  }catch(err){ reportError(err); }
+}
+
 function disconnect(){ if(device && device.gatt.connected) device.gatt.disconnect(); }
 
 $("connect").addEventListener("click", connect);
 $("disconnect").addEventListener("click", disconnect);
+$("scanall").addEventListener("click", scanAll);
 $("speaknow").addEventListener("click", function(){ speak(summary()); });
 $("interval").addEventListener("change", startTimer);
 if(!navigator.bluetooth){ $("unsupported").hidden=false; }
