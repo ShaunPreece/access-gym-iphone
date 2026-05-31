@@ -74,6 +74,8 @@
         <option value="0">Off</option><option value="10">10 seconds</option>
         <option value="20">20 seconds</option><option value="30" selected>30 seconds</option>
         <option value="60">60 seconds</option>
+        <option value="120">2 minutes</option><option value="180">3 minutes</option>
+        <option value="300">5 minutes</option><option value="600">10 minutes</option>
       </select>
     </div>
     <fieldset>
@@ -254,12 +256,16 @@ function startTimer() {
 
 /* ---------- real-time band alerts ---------- */
 const RT_META = {
-  cadence:    { step: 5,  value: () => latest.cadence_rpm,           say: (v) => `cadence ${v}` },
-  speed:      { step: 5,  value: () => getUnits() === "mi" ? latest.speed_kmh * 0.621371 : latest.speed_kmh, say: (v) => `speed ${v}` },
-  power:      { step: 25, value: () => latest.power_w,               say: (v) => `power ${v}` },
-  heart_rate: { step: 5,  value: () => latest.heart_rate,            say: (v) => `heart rate ${v}` },
+  cadence:    { step: 5,  name: "cadence",    value: () => latest.cadence_rpm },
+  speed:      { step: 5,  name: "speed",      value: () => getUnits() === "mi" ? latest.speed_kmh * 0.621371 : latest.speed_kmh },
+  power:      { step: 25, name: "power",      value: () => latest.power_w },
+  heart_rate: { step: 5,  name: "heart rate", value: () => latest.heart_rate },
 };
 const RT_KEYS = Object.keys(RT_META);
+// Just the number when a single alert is on; prefix the metric name when more
+// than one is on, so they are not ambiguous.
+function rtEnabledCount() { let n = 0; for (const k of RT_KEYS) if (rtPrefs[k]) n++; return n; }
+function rtPhrase(k, band) { return rtEnabledCount() > 1 ? `${RT_META[k].name} ${band}` : `${band}`; }
 const RT_DWELL_MS = 1500;
 let rtState = {};
 function resetRealtime() {
@@ -281,7 +287,7 @@ function checkRealtime() {
     if (st.pendBand === band) {
       if (now - st.pendSince >= RT_DWELL_MS) {                               // settled in new band
         st.last = band; st.pendBand = null;
-        speak(RT_META[k].say(band));
+        speak(rtPhrase(k, band));
       }
     } else { st.pendBand = band; st.pendSince = now; }                       // entered a new band, start settle timer
   }
