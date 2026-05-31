@@ -4,58 +4,66 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <meta name="color-scheme" content="light dark" />
-<title>Access Gym - iPhone test</title>
+<title>Access Gym (iPhone)</title>
 <!--
-  ISOLATED EXPERIMENT. Not part of the main Access Gym project. Shares no code.
-  Purpose: test whether Web Bluetooth works on an iPhone inside the Bluefy
-  browser app, and whether its device chooser is usable with VoiceOver.
+  Access Gym, iPhone build. Self-contained Web Bluetooth page (no backend): the
+  phone does the Bluetooth itself, so it works in a Web BLE browser such as the
+  Green Park "WebBLE" app. Open this page's URL in that browser, pedal, tap
+  Connect, and pick your machine in the chooser.
 
-  How to use:
-    1. Install "Bluefy - Web BLE Browser" from the App Store (Safari will NOT work).
-    2. Host this file somewhere the phone can open (see notes at bottom), open it in Bluefy.
-    3. Pedal the bike, tap Connect, pick the bike in Bluefy's chooser.
+  Features ported from the Windows app plus a new Real-time alerts feature:
+  spoken summaries on a timer, choose-what-is-spoken, km/miles, Personal Bests,
+  per-kilometre milestones, and immediate cadence/speed/power/heart-rate alerts
+  when the value settles into a new band (e.g. "cadence 60") for spin classes.
 -->
 <style>
   :root { --bg:#fff; --fg:#111; --muted:#3a4350; --accent:#0b5cab; --accent-fg:#fff; --border:#4a5360; --card:#f3f5f8; --focus:#b8002e; }
   @media (prefers-color-scheme: dark) { :root { --bg:#0e1116; --fg:#f2f5f9; --muted:#c2cad6; --accent:#4ea1ff; --accent-fg:#06121f; --border:#6b7686; --card:#1a2029; --focus:#ffd23f; } }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg); font-family:system-ui,-apple-system,"Segoe UI",Arial,sans-serif; font-size:1.15rem; line-height:1.6; }
-  header,main { max-width:42rem; margin:0 auto; padding:1rem 1.25rem; }
-  h1 { font-size:1.8rem; } h2 { font-size:1.4rem; border-bottom:2px solid var(--border); padding-bottom:.25rem; margin-top:1.75rem; }
-  .tagline { color:var(--muted); }
-  button,select { font:inherit; min-height:3rem; padding:.6rem 1.1rem; border-radius:.5rem; border:2px solid var(--accent); background:var(--accent); color:var(--accent-fg); font-weight:600; }
-  select { background:var(--card); color:var(--fg); border-color:var(--border); }
+  header,main,footer { max-width:42rem; margin:0 auto; padding:1rem 1.25rem; }
+  h1 { font-size:1.8rem; margin:0; } h2 { font-size:1.4rem; border-bottom:2px solid var(--border); padding-bottom:.25rem; margin-top:1.75rem; }
+  .tagline { color:var(--muted); margin:.25rem 0 0; }
+  button,select,input[type=text] { font:inherit; min-height:3rem; padding:.6rem 1.1rem; border-radius:.5rem; border:2px solid var(--accent); background:var(--accent); color:var(--accent-fg); font-weight:600; }
+  select,input[type=text] { background:var(--card); color:var(--fg); border-color:var(--border); width:100%; }
   button:disabled { opacity:.5; }
   :focus-visible { outline:4px solid var(--focus); outline-offset:2px; }
   .row { display:flex; flex-wrap:wrap; gap:.75rem; margin:1rem 0; }
-  .field { margin:.75rem 0; }
+  .field { margin:.9rem 0; }
   .field label { font-weight:600; display:block; margin-bottom:.25rem; }
-  .metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.75rem; }
+  fieldset { border:1px solid var(--border); border-radius:.5rem; margin:1rem 0; }
+  legend { font-weight:700; padding:0 .4rem; }
+  .check { display:flex; align-items:center; gap:.6rem; margin:.5rem 0; }
+  .check input { width:1.4rem; height:1.4rem; min-height:0; }
+  .check label { font-weight:500; margin:0; }
+  .metrics { display:grid; grid-template-columns:repeat(auto-fill,minmax(11rem,1fr)); gap:.75rem; padding:0; }
   .metric { background:var(--card); border:1px solid var(--border); border-radius:.5rem; padding:.75rem 1rem; }
   .metric dt { color:var(--muted); font-size:1rem; } .metric dd { margin:.25rem 0 0; font-size:1.5rem; font-weight:700; }
   .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
-  .note { color:var(--muted); font-size:.95rem; }
+  .note,.hint { color:var(--muted); font-size:.95rem; }
+  summary { cursor:pointer; font-weight:600; min-height:3rem; padding:.5rem 0; }
 </style>
 </head>
 <body>
 <header>
   <h1>Access Gym</h1>
-  <p class="tagline">iPhone test (Bluefy) - Beta</p>
+  <p class="tagline">iPhone, Beta</p>
 </header>
 
 <main>
   <section aria-labelledby="c">
     <h2 id="c">Connection</h2>
-    <p id="status" role="status" aria-live="polite" aria-atomic="true">Not connected. Tap Connect.</p>
+    <p id="status" role="status" aria-live="polite" aria-atomic="true">Not connected. Tap Connect, then pick your machine.</p>
     <div class="row">
-      <button id="connect">Connect to bike</button>
+      <button id="connect">Connect to machine</button>
       <button id="disconnect" disabled>Disconnect</button>
     </div>
-    <div class="row">
-      <button id="scanall">Show all Bluetooth devices (test)</button>
-    </div>
-    <p class="note">Use "Show all Bluetooth devices" only to check whether the bike appears in the chooser at all. Pedal first so the bike is broadcasting.</p>
-    <p id="unsupported" class="note" hidden>This browser has no Bluetooth. Open this page in a Web BLE browser (Bluefy) or enable the WebBLE Safari extension. Plain Safari will not work.</p>
+    <details>
+      <summary>Trouble finding it?</summary>
+      <p class="hint">Make sure you are pedalling so the machine is broadcasting, then tap Connect. If it still does not appear, tap the button below to list every nearby Bluetooth device.</p>
+      <div class="row"><button id="scanall">Show all Bluetooth devices</button></div>
+    </details>
+    <p id="unsupported" class="note" hidden>This browser has no Bluetooth. Open this page in a Web BLE browser such as WebBLE. Plain Safari will not work.</p>
   </section>
 
   <section aria-labelledby="su">
@@ -68,8 +76,34 @@
         <option value="60">60 seconds</option>
       </select>
     </div>
+    <fieldset>
+      <legend>Announce these stats in the summary</legend>
+      <div id="announce-toggles"></div>
+    </fieldset>
+    <div class="field check">
+      <input type="checkbox" id="announce-distance" checked />
+      <label for="announce-distance">Announce each kilometre or mile reached</label>
+    </div>
     <div class="row"><button id="speaknow">Speak current stats now</button></div>
     <p id="spoken" class="vh" aria-live="assertive" aria-atomic="true"></p>
+  </section>
+
+  <section aria-labelledby="rt">
+    <h2 id="rt">Real-time alerts</h2>
+    <p class="hint">Speaks a value the moment it settles into a new band, then stays quiet while you hold it. Good for spin: when the instructor calls a cadence, adjust until you hear it. Tick a stat to turn its alert on. Bands: cadence and heart rate to the nearest 5, speed to the nearest 5, power to the nearest 25.</p>
+    <fieldset>
+      <legend>Announce immediately when these change band</legend>
+      <div id="rt-toggles"></div>
+    </fieldset>
+  </section>
+
+  <section aria-labelledby="un">
+    <h2 id="un">Units</h2>
+    <fieldset>
+      <legend>Distance units</legend>
+      <div class="check"><input type="radio" name="units" id="u-km" value="km" checked /><label for="u-km">Kilometres</label></div>
+      <div class="check"><input type="radio" name="units" id="u-mi" value="mi" /><label for="u-mi">Miles</label></div>
+    </fieldset>
   </section>
 
   <section aria-labelledby="ls">
@@ -78,135 +112,407 @@
     <dl id="metrics" class="metrics"></dl>
   </section>
 
-  <p class="note">
-    Getting this onto the phone: host the file (for example a free GitHub Pages
-    page) and open that web address in Bluefy. Safari will not work because Apple
-    does not support Web Bluetooth.
-  </p>
+  <section aria-labelledby="pb">
+    <h2 id="pb">Personal bests</h2>
+    <p class="hint">Your best result for each stat. When you beat one during a workout it is announced once. Records start from sensible defaults so they are not announced constantly the first time.</p>
+    <dl id="pb-list" class="metrics"></dl>
+    <div class="row"><button id="pb-reset">Reset personal bests to defaults</button></div>
+  </section>
 </main>
+
+<footer>
+  <p class="note">Access Gym, iPhone build. Bluetooth runs in this browser, so use a Web BLE browser, not plain Safari.</p>
+</footer>
 
 <script>
 "use strict";
-var FTMS = 0x1826, IBD = 0x2ad2;
-var $ = function(id){ return document.getElementById(id); };
-var latest = {}, timer = null, device = null;
+const FTMS = 0x1826, IBD = 0x2ad2;
+const $ = (id) => document.getElementById(id);
 
-function setStatus(t){ $("status").textContent = t; }
-function speak(t){ var r=$("spoken"); if(!t) return; r.textContent=""; requestAnimationFrame(function(){ r.textContent=t; }); }
+const METRICS = [
+  { key: "speed", label: "Speed" },
+  { key: "cadence", label: "Cadence" },
+  { key: "power", label: "Power" },
+  { key: "distance", label: "Distance" },
+  { key: "calories", label: "Calories" },
+  { key: "elapsed", label: "Time moving" },
+  { key: "heart_rate", label: "Heart rate" },
+];
+const DEFAULT_ANNOUNCE = { speed: true, cadence: true, power: true, distance: true, calories: true, elapsed: true, heart_rate: false };
 
-function parseBike(dv){
-  var flags = dv.getUint16(0,true), o = 2, out = {};
-  function u16(){ var v=dv.getUint16(o,true); o+=2; return v; }
-  function s16(){ var v=dv.getInt16(o,true); o+=2; return v; }
-  function u24(){ var a=dv.getUint8(o),b=dv.getUint8(o+1),c=dv.getUint8(o+2); o+=3; return a|(b<<8)|(c<<16); }
-  function u8(){ var v=dv.getUint8(o); o+=1; return v; }
-  if(!(flags&1)) out.speed=u16()/100;
-  if(flags&2) u16();
-  if(flags&4) out.cadence=u16()/2;
-  if(flags&8) u16();
-  if(flags&16) out.distance=u24();
-  if(flags&32) s16();
-  if(flags&64) out.power=s16();
-  if(flags&128) s16();
-  if(flags&256){ out.cal=u16(); }
-  if(flags&512) out.hr=u8();
+// canonical live values (speed in km/h, distance in metres, time in seconds)
+let latest = { connected: false, speed_kmh: 0, cadence_rpm: 0, power_w: 0, heart_rate: 0, distance_m: 0, calories_est: 0, elapsed_s: 0 };
+let device = null, char = null;
+let lastT = null, movingS = 0;
+let announceTimer = null, lastMilestone = 0;
+
+/* ---------- preferences ---------- */
+function getUnits() { return localStorage.getItem("units") || "km"; }
+function setUnits(u) { localStorage.setItem("units", u); }
+function loadJSON(key, fallback) {
+  try { const r = localStorage.getItem(key); if (r) return Object.assign({}, fallback, JSON.parse(r)); } catch (e) {}
+  return Object.assign({}, fallback);
+}
+let announcePrefs = loadJSON("announcePrefs", DEFAULT_ANNOUNCE);
+function saveAnnounce() { localStorage.setItem("announcePrefs", JSON.stringify(announcePrefs)); }
+
+const DEFAULT_RT = { cadence: true, speed: false, power: false, heart_rate: false };
+let rtPrefs = loadJSON("rtAlerts", DEFAULT_RT);
+function saveRT() { localStorage.setItem("rtAlerts", JSON.stringify(rtPrefs)); }
+
+/* ---------- speech ---------- */
+function speak(text) {
+  if (!text) return;
+  const r = $("spoken");
+  r.textContent = "";
+  requestAnimationFrame(() => { r.textContent = text; });
+}
+function setStatus(t) { $("status").textContent = t; }
+
+/* ---------- formatting ---------- */
+function fmtSpeed() {
+  return getUnits() === "mi" ? `${(latest.speed_kmh * 0.621371).toFixed(1)} mph`
+                             : `${latest.speed_kmh.toFixed(1)} km/h`;
+}
+function fmtDistance() {
+  return getUnits() === "mi" ? `${(latest.distance_m / 1609.34).toFixed(2)} miles`
+                             : `${(latest.distance_m / 1000).toFixed(2)} km`;
+}
+function fmtTime(sec) {
+  const t = Math.max(0, Math.floor(sec)), m = Math.floor(t / 60), s = t % 60;
+  return m === 0 ? `${s} sec` : `${m} min ${s} sec`;
+}
+function valueFor(key) {
+  switch (key) {
+    case "speed": return fmtSpeed();
+    case "cadence": return `${Math.round(latest.cadence_rpm)} rpm`;
+    case "power": return `${latest.power_w} W`;
+    case "distance": return fmtDistance();
+    case "calories": return `${Math.round(latest.calories_est)}`;
+    case "elapsed": return fmtTime(latest.elapsed_s);
+    case "heart_rate": return `${latest.heart_rate} bpm`;
+  }
+  return "";
+}
+function spokenFor(key) {
+  const mi = getUnits() === "mi";
+  switch (key) {
+    case "speed": return mi ? `speed ${(latest.speed_kmh * 0.621371).toFixed(1)} miles per hour`
+                            : `speed ${latest.speed_kmh.toFixed(1)} kilometres per hour`;
+    case "cadence": return `cadence ${Math.round(latest.cadence_rpm)}`;
+    case "power": return `power ${latest.power_w} watts`;
+    case "distance": return mi ? `distance ${(latest.distance_m / 1609.34).toFixed(2)} miles`
+                               : `distance ${(latest.distance_m / 1000).toFixed(2)} kilometres`;
+    case "calories": return `${Math.round(latest.calories_est)} calories`;
+    case "elapsed": return `time ${fmtTime(latest.elapsed_s)}`;
+    case "heart_rate": return `heart rate ${latest.heart_rate}`;
+  }
+  return "";
+}
+
+/* ---------- live cards ---------- */
+function renderMetrics() {
+  const list = $("metrics");
+  const rows = [];
+  for (const m of METRICS) {
+    if (m.key === "heart_rate" && !(latest.heart_rate > 0)) continue;
+    rows.push([m.label, valueFor(m.key)]);
+  }
+  $("empty").hidden = rows.length > 0;
+  list.innerHTML = "";
+  for (const [label, val] of rows) {
+    const w = document.createElement("div"); w.className = "metric";
+    const dt = document.createElement("dt"); dt.textContent = label;
+    const dd = document.createElement("dd"); dd.textContent = val;
+    w.append(dt, dd); list.append(w);
+  }
+}
+
+/* ---------- summary speech ---------- */
+function buildSummary() {
+  if (!latest.connected) return "Not connected to a machine yet.";
+  const parts = [];
+  for (const m of METRICS) {
+    if (!announcePrefs[m.key]) continue;
+    if (m.key === "heart_rate" && !(latest.heart_rate > 0)) continue;
+    parts.push(spokenFor(m.key));
+  }
+  return parts.length ? parts.join(", ") : "No stats selected to announce.";
+}
+function announceSummary() {
+  const pbs = checkPersonalBests();
+  const summary = buildSummary();
+  if (pbs.length) speak(`${summary}. New personal best! ${pbs.join(". ")}.`);
+  else speak(summary);
+}
+function startTimer() {
+  if (announceTimer) clearInterval(announceTimer);
+  const s = parseInt($("interval").value, 10);
+  if (!s) return;
+  announceTimer = setInterval(() => { if (latest.connected) announceSummary(); }, s * 1000);
+}
+
+/* ---------- real-time band alerts ---------- */
+const RT_META = {
+  cadence:    { step: 5,  value: () => latest.cadence_rpm,           say: (v) => `cadence ${v}` },
+  speed:      { step: 5,  value: () => getUnits() === "mi" ? latest.speed_kmh * 0.621371 : latest.speed_kmh, say: (v) => `speed ${v}` },
+  power:      { step: 25, value: () => latest.power_w,               say: (v) => `power ${v}` },
+  heart_rate: { step: 5,  value: () => latest.heart_rate,            say: (v) => `heart rate ${v}` },
+};
+const RT_KEYS = Object.keys(RT_META);
+const RT_DWELL_MS = 1500;
+let rtState = {};
+function resetRealtime() {
+  rtState = {};
+  for (const k of RT_KEYS) rtState[k] = { last: null, pendBand: null, pendSince: 0 };
+}
+function checkRealtime() {
+  if (!latest.connected) return;
+  const now = performance.now();
+  for (const k of RT_KEYS) {
+    if (!rtPrefs[k]) continue;
+    const v = RT_META[k].value();
+    if (v == null || (k === "heart_rate" && !(v > 0))) continue;
+    const step = RT_META[k].step;
+    const band = Math.round(v / step) * step;
+    const st = rtState[k];
+    if (st.last === null) { st.last = band; st.pendBand = null; continue; }  // baseline, silent
+    if (band === st.last) { st.pendBand = null; continue; }                  // holding, quiet
+    if (st.pendBand === band) {
+      if (now - st.pendSince >= RT_DWELL_MS) {                               // settled in new band
+        st.last = band; st.pendBand = null;
+        speak(RT_META[k].say(band));
+      }
+    } else { st.pendBand = band; st.pendSince = now; }                       // entered a new band, start settle timer
+  }
+}
+
+/* ---------- distance milestones ---------- */
+function checkMilestone() {
+  if (!$("announce-distance").checked) return;
+  const dist = getUnits() === "mi" ? latest.distance_m / 1609.34 : latest.distance_m / 1000;
+  const whole = Math.floor(dist);
+  if (whole > lastMilestone) {
+    lastMilestone = whole;
+    const unit = getUnits() === "mi" ? "mile" : "kilometre";
+    speak(`${whole} ${unit}${whole === 1 ? "" : "s"} reached.`);
+  }
+}
+
+/* ---------- personal bests ---------- */
+const PB_METRICS = [
+  { key: "speed_kmh", label: "Top speed" },
+  { key: "cadence_rpm", label: "Top cadence" },
+  { key: "power_w", label: "Top power" },
+  { key: "distance_m", label: "Furthest distance" },
+  { key: "calories_est", label: "Most calories" },
+  { key: "elapsed_s", label: "Longest time moving" },
+];
+const DEFAULT_PB = { speed_kmh: 30, cadence_rpm: 90, power_w: 150, distance_m: 5000, calories_est: 150, elapsed_s: 1200 };
+let pb = loadJSON("personalBests", DEFAULT_PB);
+function savePB() { localStorage.setItem("personalBests", JSON.stringify(pb)); }
+function blankSession() { return { speed_kmh: 0, cadence_rpm: 0, power_w: 0, distance_m: 0, calories_est: 0, elapsed_s: 0 }; }
+let sessionBest = blankSession();
+let recordToBeat = Object.assign({}, pb);
+let pbAnnounced = {};
+function startNewSession() { sessionBest = blankSession(); recordToBeat = Object.assign({}, pb); pbAnnounced = {}; }
+function updateSessionBests() {
+  let changed = false;
+  for (const m of PB_METRICS) {
+    const v = latest[m.key] || 0;
+    if (v > sessionBest[m.key]) sessionBest[m.key] = v;
+    if (sessionBest[m.key] > pb[m.key]) { pb[m.key] = sessionBest[m.key]; changed = true; }
+  }
+  if (changed) { savePB(); renderPersonalBests(); }
+}
+function pbSpoken(key, v) {
+  const mi = getUnits() === "mi";
+  switch (key) {
+    case "speed_kmh": return mi ? `top speed ${(v * 0.621371).toFixed(1)} miles per hour` : `top speed ${v.toFixed(1)} kilometres per hour`;
+    case "cadence_rpm": return `top cadence ${Math.round(v)}`;
+    case "power_w": return `top power ${Math.round(v)} watts`;
+    case "distance_m": return mi ? `furthest distance ${(v / 1609.34).toFixed(2)} miles` : `furthest distance ${(v / 1000).toFixed(2)} kilometres`;
+    case "calories_est": return `most calories ${Math.round(v)}`;
+    case "elapsed_s": return `longest time ${fmtTime(v)}`;
+  }
+  return "";
+}
+function pbDisplay(key, v) {
+  const mi = getUnits() === "mi";
+  switch (key) {
+    case "speed_kmh": return mi ? `${(v * 0.621371).toFixed(1)} mph` : `${v.toFixed(1)} km/h`;
+    case "cadence_rpm": return `${Math.round(v)} rpm`;
+    case "power_w": return `${Math.round(v)} W`;
+    case "distance_m": return mi ? `${(v / 1609.34).toFixed(2)} miles` : `${(v / 1000).toFixed(2)} km`;
+    case "calories_est": return `${Math.round(v)}`;
+    case "elapsed_s": return fmtTime(v);
+  }
+  return "";
+}
+function checkPersonalBests() {
+  if (!latest.connected) return [];
+  const phrases = [];
+  for (const m of PB_METRICS) {
+    if (!pbAnnounced[m.key] && sessionBest[m.key] > recordToBeat[m.key]) {
+      pbAnnounced[m.key] = true;
+      phrases.push(pbSpoken(m.key, sessionBest[m.key]));
+    }
+  }
+  return phrases;
+}
+function renderPersonalBests() {
+  const list = $("pb-list");
+  list.innerHTML = "";
+  for (const m of PB_METRICS) {
+    const w = document.createElement("div"); w.className = "metric";
+    const dt = document.createElement("dt"); dt.textContent = m.label;
+    const dd = document.createElement("dd"); dd.textContent = pbDisplay(m.key, pb[m.key]);
+    w.append(dt, dd); list.append(w);
+  }
+}
+function resetPersonalBests() {
+  pb = Object.assign({}, DEFAULT_PB);
+  savePB(); startNewSession(); renderPersonalBests();
+  speak("Personal bests reset to the default starting values.");
+}
+
+/* ---------- Bluetooth ---------- */
+function parseBike(dv) {
+  const flags = dv.getUint16(0, true); let o = 2; const out = {};
+  const u16 = () => { const v = dv.getUint16(o, true); o += 2; return v; };
+  const s16 = () => { const v = dv.getInt16(o, true); o += 2; return v; };
+  const u24 = () => { const a = dv.getUint8(o), b = dv.getUint8(o + 1), c = dv.getUint8(o + 2); o += 3; return a | (b << 8) | (c << 16); };
+  const u8 = () => { const v = dv.getUint8(o); o += 1; return v; };
+  if (!(flags & 1)) out.speed_kmh = u16() / 100;
+  if (flags & 2) u16();
+  if (flags & 4) out.cadence_rpm = u16() / 2;
+  if (flags & 8) u16();
+  if (flags & 16) out.distance_m = u24();
+  if (flags & 32) s16();
+  if (flags & 64) out.power_w = s16();
+  if (flags & 128) s16();
+  if (flags & 256) out.energy_kcal = u16();
+  if (flags & 512) out.heart_rate = u8();
   return out;
 }
-
-function render(){
-  var rows=[];
-  if("speed" in latest) rows.push(["Speed", latest.speed.toFixed(1)+" km/h"]);
-  if("cadence" in latest) rows.push(["Cadence", Math.round(latest.cadence)+" rpm"]);
-  if("power" in latest) rows.push(["Power", latest.power+" W"]);
-  if("distance" in latest) rows.push(["Distance", (latest.distance/1000).toFixed(2)+" km"]);
-  if("hr" in latest && latest.hr>0) rows.push(["Heart rate", latest.hr+" bpm"]);
-  $("empty").hidden = rows.length>0;
-  var list=$("metrics"); list.innerHTML="";
-  rows.forEach(function(r){
-    var w=document.createElement("div"); w.className="metric";
-    var dt=document.createElement("dt"); dt.textContent=r[0];
-    var dd=document.createElement("dd"); dd.textContent=r[1];
-    w.appendChild(dt); w.appendChild(dd); list.appendChild(w);
-  });
+function onData(e) {
+  const m = parseBike(e.target.value);
+  const now = performance.now() / 1000;
+  if ("speed_kmh" in m) latest.speed_kmh = m.speed_kmh;
+  if ("cadence_rpm" in m) latest.cadence_rpm = m.cadence_rpm;
+  if ("power_w" in m) latest.power_w = m.power_w;
+  if ("heart_rate" in m) latest.heart_rate = m.heart_rate;
+  const dt = lastT === null ? 0 : (now - lastT);
+  lastT = now;
+  if ("distance_m" in m) latest.distance_m = m.distance_m;
+  else if (dt > 0 && dt < 5) latest.distance_m += (latest.speed_kmh * 1000 / 3600) * dt;
+  if ("energy_kcal" in m) latest.calories_est = m.energy_kcal;
+  else if (dt > 0 && dt < 5) latest.calories_est += (latest.power_w * dt) / 4184 / 0.24;
+  if (dt > 0 && dt < 5 && latest.speed_kmh > 0) { movingS += dt; latest.elapsed_s = Math.floor(movingS); }
+  renderMetrics();
+  updateSessionBests();
+  checkRealtime();
+  checkMilestone();
 }
-
-function summary(){
-  var p=[];
-  if("speed" in latest) p.push("speed "+latest.speed.toFixed(1)+" kilometres per hour");
-  if("cadence" in latest) p.push("cadence "+Math.round(latest.cadence));
-  if("power" in latest) p.push("power "+latest.power+" watts");
-  if("hr" in latest && latest.hr>0) p.push("heart rate "+latest.hr);
-  return p.length? p.join(", ") : "No data yet.";
+function resetSession() {
+  latest = { connected: true, speed_kmh: 0, cadence_rpm: 0, power_w: 0, heart_rate: 0, distance_m: 0, calories_est: 0, elapsed_s: 0 };
+  lastT = null; movingS = 0; lastMilestone = 0;
+  startNewSession();
+  resetRealtime();
+  renderMetrics();
 }
-
-function startTimer(){
-  if(timer) clearInterval(timer);
-  var s=parseInt($("interval").value,10); if(!s) return;
-  timer=setInterval(function(){ if(device&&device.gatt.connected) speak(summary()); }, s*1000);
+function reportError(err) {
+  const name = (err && err.name) ? err.name : "";
+  const msg = (err && err.message) ? err.message : String(err);
+  if (name === "NotFoundError") setStatus(`No machine was selected, or none appeared. Make sure you are pedalling, then try again. (${msg})`);
+  else if (name === "SecurityError") setStatus(`Blocked by browser security. Open over https, not a local file. (${msg})`);
+  else if (name === "NetworkError") setStatus(`Found the machine but the connection dropped. Keep pedalling and try again. (${msg})`);
+  else setStatus(`Could not connect [${name || "error"}]: ${msg}`);
 }
-
-function onData(e){ latest = parseBike(e.target.value); render(); }
-
-function reportError(err){
-  var name = (err && err.name) ? err.name : "";
-  var msg = (err && err.message) ? err.message : String(err);
-  if(name==="NotFoundError"){
-    setStatus("No bike was selected, or none appeared in the chooser. Make sure you are pedalling so the bike is broadcasting, then try again. If it still does not show, tap Show all Bluetooth devices to check. (Details: "+msg+")");
-  } else if(name==="SecurityError"){
-    setStatus("Blocked by browser security. The page must be opened over https (a web address), not a local file. (Details: "+msg+")");
-  } else if(name==="NetworkError"){
-    setStatus("Found the bike but the connection dropped or timed out. Keep pedalling and try again. (Details: "+msg+")");
-  } else if(name==="NotSupportedError"){
-    setStatus("This browser does not support the needed Bluetooth feature. Try a different Web BLE browser. (Details: "+msg+")");
-  } else {
-    setStatus("Could not connect ["+(name||"error")+"]: "+msg);
-  }
-}
-
-async function connect(){
-  if(!navigator.bluetooth){ $("unsupported").hidden=false; setStatus("No Bluetooth in this browser. Use Bluefy or the WebBLE Safari extension."); return; }
-  try{
-    setStatus("Opening the chooser. Make sure you are pedalling, then pick your bike.");
-    // Match the FTMS service OR a name starting with Sport01 (mirrors the
-    // Windows backend's name fallback, since this bike does not always
-    // advertise the FTMS service UUID). optionalServices lets us still use
-    // FTMS after connecting even when the device was matched only by name.
-    device = await navigator.bluetooth.requestDevice({
-      filters:[ {services:[FTMS]}, {namePrefix:"Sport01"} ],
-      optionalServices:[FTMS]
-    });
-    device.addEventListener("gattserverdisconnected", function(){ setStatus("Disconnected."); $("connect").disabled=false; $("disconnect").disabled=true; if(timer) clearInterval(timer); });
-    setStatus("Connecting to "+(device.name||"bike")+"...");
-    var server = await device.gatt.connect();
-    var svc = await server.getPrimaryService(FTMS);
-    var ch = await svc.getCharacteristic(IBD);
-    await ch.startNotifications();
-    ch.addEventListener("characteristicvaluechanged", onData);
-    setStatus("Connected to "+(device.name||"bike")+". Pedal to see stats.");
-    $("connect").disabled=true; $("disconnect").disabled=false;
+async function connect() {
+  if (!navigator.bluetooth) { $("unsupported").hidden = false; setStatus("No Bluetooth in this browser. Use a Web BLE browser."); return; }
+  try {
+    setStatus("Opening the chooser. Make sure you are pedalling, then pick your machine.");
+    device = await navigator.bluetooth.requestDevice({ filters: [{ services: [FTMS] }, { namePrefix: "Sport01" }], optionalServices: [FTMS] });
+    device.addEventListener("gattserverdisconnected", onDisconnected);
+    setStatus(`Connecting to ${device.name || "machine"}...`);
+    const server = await device.gatt.connect();
+    const svc = await server.getPrimaryService(FTMS);
+    char = await svc.getCharacteristic(IBD);
+    await char.startNotifications();
+    char.addEventListener("characteristicvaluechanged", onData);
+    resetSession();
+    setStatus(`Connected to ${device.name || "machine"}. Reading your stats.`);
+    $("connect").disabled = true; $("disconnect").disabled = false;
     startTimer();
-  }catch(err){
-    reportError(err);
+    setTimeout(announceSummary, 4000);
+  } catch (err) { reportError(err); }
+}
+function onDisconnected() {
+  latest.connected = false;
+  if (announceTimer) clearInterval(announceTimer);
+  $("connect").disabled = false; $("disconnect").disabled = true;
+  setStatus("Disconnected. Tap Connect to reconnect.");
+}
+function disconnect() { if (device && device.gatt.connected) device.gatt.disconnect(); }
+
+async function scanAll() {
+  if (!navigator.bluetooth) { $("unsupported").hidden = false; setStatus("No Bluetooth in this browser. Use a Web BLE browser."); return; }
+  try {
+    setStatus("Opening the chooser with all nearby devices. Pick yours to identify it.");
+    const d = await navigator.bluetooth.requestDevice({ acceptAllDevices: true, optionalServices: [FTMS] });
+    setStatus(`You picked: "${d.name || "(no name)"}". If your machine shows here but not under Connect, tell Shaun its name so we can add it.`);
+  } catch (err) { reportError(err); }
+}
+
+/* ---------- build toggle UIs ---------- */
+function buildAnnounceToggles() {
+  const box = $("announce-toggles");
+  for (const m of METRICS) {
+    const wrap = document.createElement("div"); wrap.className = "check";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.id = "ann-" + m.key; cb.checked = !!announcePrefs[m.key];
+    cb.addEventListener("change", () => { announcePrefs[m.key] = cb.checked; saveAnnounce(); });
+    const lab = document.createElement("label"); lab.setAttribute("for", cb.id); lab.textContent = m.label;
+    wrap.append(cb, lab); box.append(wrap);
+  }
+}
+function buildRtToggles() {
+  const box = $("rt-toggles");
+  const labels = { cadence: "Cadence", speed: "Speed", power: "Power", heart_rate: "Heart rate" };
+  for (const k of RT_KEYS) {
+    const wrap = document.createElement("div"); wrap.className = "check";
+    const cb = document.createElement("input"); cb.type = "checkbox"; cb.id = "rt-" + k; cb.checked = !!rtPrefs[k];
+    cb.addEventListener("change", () => { rtPrefs[k] = cb.checked; saveRT(); if (rtState[k]) rtState[k] = { last: null, pendBand: null, pendSince: 0 }; });
+    const lab = document.createElement("label"); lab.setAttribute("for", cb.id); lab.textContent = labels[k];
+    wrap.append(cb, lab); box.append(wrap);
   }
 }
 
-async function scanAll(){
-  if(!navigator.bluetooth){ $("unsupported").hidden=false; setStatus("No Bluetooth in this browser. Use Bluefy or the WebBLE Safari extension."); return; }
-  try{
-    setStatus("Opening the chooser with ALL nearby Bluetooth devices. Pedal the bike, then pick whatever looks like it to identify it.");
-    var d = await navigator.bluetooth.requestDevice({ acceptAllDevices:true, optionalServices:[FTMS] });
-    setStatus("You picked: \""+(d.name||"(no name)")+"\". If your bike shows here but not under Connect, the filter is the issue and we can fix it. If it never shows here even while pedalling, it is a Bluetooth range or pairing issue.");
-  }catch(err){ reportError(err); }
+/* ---------- init ---------- */
+function init() {
+  buildAnnounceToggles();
+  buildRtToggles();
+  resetRealtime();
+  renderPersonalBests();
+
+  const u = getUnits();
+  for (const radio of document.querySelectorAll('input[name="units"]')) {
+    radio.checked = radio.value === u;
+    radio.addEventListener("change", () => {
+      if (radio.checked) { setUnits(radio.value); lastMilestone = 0; renderMetrics(); renderPersonalBests(); }
+    });
+  }
+
+  $("connect").addEventListener("click", connect);
+  $("disconnect").addEventListener("click", disconnect);
+  $("scanall").addEventListener("click", scanAll);
+  $("speaknow").addEventListener("click", announceSummary);
+  $("interval").addEventListener("change", startTimer);
+  $("pb-reset").addEventListener("click", resetPersonalBests);
+
+  if (!navigator.bluetooth) $("unsupported").hidden = false;
 }
-
-function disconnect(){ if(device && device.gatt.connected) device.gatt.disconnect(); }
-
-$("connect").addEventListener("click", connect);
-$("disconnect").addEventListener("click", disconnect);
-$("scanall").addEventListener("click", scanAll);
-$("speaknow").addEventListener("click", function(){ speak(summary()); });
-$("interval").addEventListener("change", startTimer);
-if(!navigator.bluetooth){ $("unsupported").hidden=false; }
+document.addEventListener("DOMContentLoaded", init);
 </script>
 </body>
 </html>
