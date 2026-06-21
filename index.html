@@ -11,10 +11,12 @@
   Green Park "WebBLE" app. Open this page's URL in that browser, pedal, tap
   Connect, and pick your machine in the chooser.
 
-  Features ported from the Windows app plus a new Real-time alerts feature:
-  spoken summaries on a timer, choose-what-is-spoken, km/miles, Personal Bests,
-  per-kilometre milestones, and immediate cadence/speed/power/heart-rate alerts
-  when the value settles into a new band (e.g. "cadence 60") for spin classes.
+  Features ported from the Windows app: spoken summaries on a timer,
+  choose-what-is-spoken, km/miles, Personal Bests, per-kilometre milestones,
+  Real-time band alerts (e.g. "cadence 60") for spin classes, collapsible
+  options to keep the screen tidy, and Save this session plus a Saved sessions
+  history. Because there is no backend, sessions and preferences are stored in
+  this browser's localStorage on the phone itself.
 -->
 <style>
   :root { --bg:#fff; --fg:#111; --muted:#3a4350; --accent:#0b5cab; --accent-fg:#fff; --border:#4a5360; --card:#f3f5f8; --focus:#b8002e; }
@@ -42,6 +44,9 @@
   .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); white-space:nowrap; }
   .note,.hint { color:var(--muted); font-size:.95rem; }
   summary { cursor:pointer; font-weight:600; min-height:3rem; padding:.5rem 0; }
+  .session { border-top:1px solid var(--border); padding-top:.5rem; margin-top:1rem; }
+  .session h3 { font-size:1.2rem; margin:.25rem 0; }
+  .machine { color:var(--muted); font-size:.95rem; margin:.1rem 0 .5rem; }
 </style>
 </head>
 <body>
@@ -68,44 +73,54 @@
 
   <section aria-labelledby="su">
     <h2 id="su">Spoken updates</h2>
-    <div class="field">
-      <label for="interval">Speak a summary every</label>
-      <select id="interval">
-        <option value="0">Off</option><option value="10">10 seconds</option>
-        <option value="20">20 seconds</option><option value="30" selected>30 seconds</option>
-        <option value="60">60 seconds</option>
-        <option value="120">2 minutes</option><option value="180">3 minutes</option>
-        <option value="300">5 minutes</option><option value="600">10 minutes</option>
-      </select>
-    </div>
-    <fieldset>
-      <legend>Announce these stats in the summary</legend>
-      <div id="announce-toggles"></div>
-    </fieldset>
-    <div class="field check">
-      <input type="checkbox" id="announce-distance" checked />
-      <label for="announce-distance">Announce each kilometre or mile reached</label>
-    </div>
     <div class="row"><button id="speaknow">Speak current stats now</button></div>
+    <!-- The live region the screen reader announces from. Kept outside the
+         collapsible options below so it is never inside a closed (hidden)
+         details element, which would stop announcements. -->
     <p id="spoken" class="vh" aria-live="assertive" aria-atomic="true"></p>
+
+    <details>
+      <summary>Change what and when stats are spoken</summary>
+
+      <div class="field">
+        <label for="interval">Speak a summary every</label>
+        <select id="interval">
+          <option value="0">Off</option><option value="10">10 seconds</option>
+          <option value="20">20 seconds</option><option value="30" selected>30 seconds</option>
+          <option value="60">60 seconds</option>
+          <option value="120">2 minutes</option><option value="180">3 minutes</option>
+          <option value="300">5 minutes</option><option value="600">10 minutes</option>
+        </select>
+      </div>
+
+      <fieldset>
+        <legend>Announce these stats in the summary</legend>
+        <div id="announce-toggles"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Distance units</legend>
+        <div class="check"><input type="radio" name="units" id="u-km" value="km" checked /><label for="u-km">Kilometres</label></div>
+        <div class="check"><input type="radio" name="units" id="u-mi" value="mi" /><label for="u-mi">Miles</label></div>
+      </fieldset>
+
+      <div class="field check">
+        <input type="checkbox" id="announce-distance" checked />
+        <label for="announce-distance">Announce each kilometre or mile reached</label>
+      </div>
+    </details>
   </section>
 
   <section aria-labelledby="rt">
     <h2 id="rt">Real-time alerts</h2>
-    <p class="hint">Speaks a value the moment it settles into a new band, then stays quiet while you hold it. Good for spin: when the instructor calls a cadence, adjust until you hear it. Tick a stat to turn its alert on. Bands: cadence and heart rate to the nearest 5, speed to the nearest 5, power to the nearest 25.</p>
-    <fieldset>
-      <legend>Announce immediately when these change band</legend>
-      <div id="rt-toggles"></div>
-    </fieldset>
-  </section>
-
-  <section aria-labelledby="un">
-    <h2 id="un">Units</h2>
-    <fieldset>
-      <legend>Distance units</legend>
-      <div class="check"><input type="radio" name="units" id="u-km" value="km" checked /><label for="u-km">Kilometres</label></div>
-      <div class="check"><input type="radio" name="units" id="u-mi" value="mi" /><label for="u-mi">Miles</label></div>
-    </fieldset>
+    <details>
+      <summary>Set up real-time alerts</summary>
+      <p class="hint">Speaks a value the moment it settles into a new band, then stays quiet while you hold it. Good for spin: when the instructor calls a cadence, adjust until you hear it. Tick a stat to turn its alert on. Bands: cadence and heart rate to the nearest 5, speed to the nearest 5, power to the nearest 25.</p>
+      <fieldset>
+        <legend>Announce immediately when these change band</legend>
+        <div id="rt-toggles"></div>
+      </fieldset>
+    </details>
   </section>
 
   <section aria-labelledby="ls">
@@ -114,22 +129,58 @@
     <dl id="metrics" class="metrics"></dl>
   </section>
 
+  <section aria-labelledby="sv">
+    <h2 id="sv">Save this session</h2>
+    <p class="hint">When you finish, save this workout with your name and the date so you can look back on it later. Sessions are stored on this phone, in this browser.</p>
+    <div class="field">
+      <label for="athlete-name">Your name</label>
+      <input type="text" id="athlete-name" autocomplete="name" placeholder="e.g. Shaun" />
+      <p class="hint">Saved for next time, so you only enter it once.</p>
+    </div>
+    <div class="row"><button id="save-session">Save this session</button></div>
+    <p id="save-status" role="status" aria-live="assertive" aria-atomic="true"></p>
+  </section>
+
+  <section aria-labelledby="hist">
+    <h2 id="hist">Saved sessions</h2>
+    <details id="sess-details">
+      <summary>Show saved sessions</summary>
+      <div class="field">
+        <label for="sess-name">Whose sessions</label>
+        <select id="sess-name"><option value="">Everyone</option></select>
+      </div>
+      <p id="sess-status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <h3>Totals</h3>
+      <dl id="sess-totals" class="metrics"></dl>
+      <h3 id="sess-list-heading">Sessions</h3>
+      <p id="sess-empty" hidden>No saved sessions yet. Finish a workout above and tap Save this session.</p>
+      <div id="sess-list" aria-labelledby="sess-list-heading"></div>
+      <div class="row"><button id="sess-clear">Clear all saved sessions</button></div>
+    </details>
+  </section>
+
   <section aria-labelledby="pb">
     <h2 id="pb">Personal bests</h2>
-    <p class="hint">Your best result for each stat. When you beat one during a workout it is announced once. Records start from sensible defaults so they are not announced constantly the first time.</p>
-    <dl id="pb-list" class="metrics"></dl>
-    <div class="row"><button id="pb-reset">Reset personal bests to defaults</button></div>
+    <details>
+      <summary>Show your personal bests</summary>
+      <p class="hint">Your best result for each stat. When you beat one during a workout it is announced once. Records start from sensible defaults so they are not announced constantly the first time.</p>
+      <dl id="pb-list" class="metrics"></dl>
+      <div class="row"><button id="pb-reset">Reset personal bests to defaults</button></div>
+    </details>
   </section>
 </main>
 
 <footer>
-  <p class="note">Access Gym, iPhone build. Bluetooth runs in this browser, so use a Web BLE browser, not plain Safari.</p>
+  <p class="note">Access Gym, iPhone build. Bluetooth runs in this browser, so use a Web BLE browser, not plain Safari. Sessions and settings are stored on this phone only.</p>
 </footer>
 
 <script>
 "use strict";
 const FTMS = 0x1826, IBD = 0x2ad2;
 const $ = (id) => document.getElementById(id);
+
+const MONTHS = ["January", "February", "March", "April", "May", "June", "July",
+  "August", "September", "October", "November", "December"];
 
 const METRICS = [
   { key: "speed", label: "Speed" },
@@ -151,6 +202,8 @@ let announceTimer = null, lastMilestone = 0;
 /* ---------- preferences ---------- */
 function getUnits() { return localStorage.getItem("units") || "km"; }
 function setUnits(u) { localStorage.setItem("units", u); }
+function getName() { return localStorage.getItem("athleteName") || ""; }
+function setName(n) { localStorage.setItem("athleteName", n); }
 function loadJSON(key, fallback) {
   try { const r = localStorage.getItem(key); if (r) return Object.assign({}, fallback, JSON.parse(r)); } catch (e) {}
   return Object.assign({}, fallback);
@@ -183,6 +236,32 @@ function fmtDistance() {
 function fmtTime(sec) {
   const t = Math.max(0, Math.floor(sec)), m = Math.floor(t / 60), s = t % 60;
   return m === 0 ? `${s} sec` : `${m} min ${s} sec`;
+}
+// Value-taking formatters for saved sessions (records hold canonical units).
+function fmtSpeedKmh(kmh) {
+  return getUnits() === "mi" ? `${((kmh || 0) * 0.621371).toFixed(1)} mph`
+                             : `${(kmh || 0).toFixed(1)} km/h`;
+}
+function fmtDistM(m) {
+  return getUnits() === "mi" ? `${((m || 0) / 1609.34).toFixed(2)} miles`
+                             : `${((m || 0) / 1000).toFixed(2)} km`;
+}
+// Duration that grows to hours, for sessions that run over an hour.
+function fmtDur(sec) {
+  sec = Math.max(0, Math.floor(sec || 0));
+  const h = Math.floor(sec / 3600), m = Math.floor((sec % 3600) / 60), s = sec % 60;
+  if (h > 0) return `${h} hour${h === 1 ? "" : "s"} ${m} min`;
+  if (m > 0) return `${m} min ${s} sec`;
+  return `${s} sec`;
+}
+function fmtDate(iso) {
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "Unknown date";
+  let h = d.getHours();
+  const ampm = h >= 12 ? "pm" : "am";
+  h = h % 12; if (h === 0) h = 12;
+  const mins = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()}, ${h}:${mins} ${ampm}`;
 }
 function valueFor(key) {
   switch (key) {
@@ -318,10 +397,25 @@ const DEFAULT_PB = { speed_kmh: 30, cadence_rpm: 90, power_w: 150, distance_m: 5
 let pb = loadJSON("personalBests", DEFAULT_PB);
 function savePB() { localStorage.setItem("personalBests", JSON.stringify(pb)); }
 function blankSession() { return { speed_kmh: 0, cadence_rpm: 0, power_w: 0, distance_m: 0, calories_est: 0, elapsed_s: 0 }; }
+// Running totals for the averages we save (cadence, power, heart rate), sampled
+// once per Bluetooth notification while connected. Only samples above zero are
+// counted, so coasting or a missing heart-rate strap does not drag an average
+// down. Peak heart rate is tracked here since PBs deliberately exclude it.
+function blankAccum() { return { cadSum: 0, cadN: 0, powSum: 0, powN: 0, hrSum: 0, hrN: 0, hrPeak: 0 }; }
 let sessionBest = blankSession();
+let sessionAccum = blankAccum();
 let recordToBeat = Object.assign({}, pb);
 let pbAnnounced = {};
-function startNewSession() { sessionBest = blankSession(); recordToBeat = Object.assign({}, pb); pbAnnounced = {}; }
+let sessionStartedAt = null;   // ISO timestamp captured when a workout begins
+let sessionSavedDur = -1;      // elapsed_s at last save this session, -1 = unsaved
+function startNewSession() {
+  sessionBest = blankSession();
+  sessionAccum = blankAccum();
+  recordToBeat = Object.assign({}, pb);
+  pbAnnounced = {};
+  sessionStartedAt = new Date().toISOString();
+  sessionSavedDur = -1;
+}
 function updateSessionBests() {
   let changed = false;
   for (const m of PB_METRICS) {
@@ -382,6 +476,133 @@ function resetPersonalBests() {
   speak("Personal bests reset to the default starting values.");
 }
 
+/* ---------- saved sessions (localStorage) ---------- */
+function loadSessions() {
+  try { const r = JSON.parse(localStorage.getItem("sessions") || "[]"); return Array.isArray(r) ? r : []; } catch (e) { return []; }
+}
+function storeSessions(arr) { localStorage.setItem("sessions", JSON.stringify(arr)); }
+
+// Build the record from the current live totals, session peaks and accumulated
+// averages. Stored in canonical units (km/h, metres, seconds) so it renders in
+// whichever units are chosen later. Same shape as the Windows browse page.
+function buildSessionRecord() {
+  const now = new Date();
+  const dur = latest.elapsed_s || 0;
+  const distM = latest.distance_m || 0;
+  const a = sessionAccum;
+  return {
+    id: now.toISOString() + "-" + Math.random().toString(36).slice(2, 8),
+    name: getName() || "Anonymous",
+    machine: (device && device.name) ? device.name : "Unknown machine",
+    startedAt: sessionStartedAt || now.toISOString(),
+    savedAt: now.toISOString(),
+    durationSec: dur,
+    distanceM: Math.round(distM),
+    calories: Math.round(latest.calories_est || 0),
+    avgSpeedKmh: dur > 0 ? +((distM / dur) * 3.6).toFixed(1) : 0,
+    avgCadence: a.cadN ? Math.round(a.cadSum / a.cadN) : 0,
+    avgPower: a.powN ? Math.round(a.powSum / a.powN) : 0,
+    avgHeartRate: a.hrN ? Math.round(a.hrSum / a.hrN) : 0,
+    topSpeedKmh: +sessionBest.speed_kmh.toFixed(1),
+    topCadence: Math.round(sessionBest.cadence_rpm),
+    topPower: Math.round(sessionBest.power_w),
+    topHeartRate: a.hrPeak,
+  };
+}
+function describeSession(rec) {
+  const mi = getUnits() === "mi";
+  const dist = mi ? `${(rec.distanceM / 1609.34).toFixed(2)} miles` : `${(rec.distanceM / 1000).toFixed(2)} kilometres`;
+  return `${dist}, time ${fmtTime(rec.durationSec)}, ${rec.calories} calories.`;
+}
+function saveStatus(text) {
+  const r = $("save-status");
+  r.textContent = "";
+  requestAnimationFrame(() => { r.textContent = text; });
+}
+function saveSession() {
+  if (!latest.connected) { saveStatus("Connect to a machine and do a workout before saving."); return; }
+  const dur = latest.elapsed_s || 0, dist = latest.distance_m || 0;
+  if (dur <= 0 && dist <= 0) { saveStatus("No workout to save yet. Start pedalling first."); return; }
+  if (sessionSavedDur >= 0 && dur <= sessionSavedDur) { saveStatus("This session is already saved. Keep going and it will save the extra."); return; }
+  const rec = buildSessionRecord();
+  const arr = loadSessions();
+  // Re-saving the same workout (same start time) updates its record rather than
+  // adding a duplicate, so the history stays clean as the workout grows.
+  const i = arr.findIndex((s) => s.startedAt === rec.startedAt);
+  if (i >= 0) { rec.id = arr[i].id; arr[i] = rec; } else { arr.push(rec); }
+  storeSessions(arr);
+  sessionSavedDur = dur;
+  saveStatus(`Session saved for ${rec.name}. ${describeSession(rec)}`);
+  renderSavedSessions();
+}
+function addRow(dl, label, value) {
+  const w = document.createElement("div"); w.className = "metric";
+  const dt = document.createElement("dt"); dt.textContent = label;
+  const dd = document.createElement("dd"); dd.textContent = value;
+  w.append(dt, dd); dl.append(w);
+}
+function renderSessionCard(s) {
+  const card = document.createElement("div"); card.className = "session";
+  const h3 = document.createElement("h3");
+  h3.textContent = `${fmtDate(s.startedAt || s.savedAt)}, ${s.name || "Anonymous"}`;
+  card.append(h3);
+  if (s.machine) { const p = document.createElement("p"); p.className = "machine"; p.textContent = s.machine; card.append(p); }
+  const dl = document.createElement("dl"); dl.className = "metrics";
+  addRow(dl, "Distance", fmtDistM(s.distanceM));
+  addRow(dl, "Time", fmtDur(s.durationSec));
+  addRow(dl, "Calories", `${Math.round(s.calories || 0)}`);
+  addRow(dl, "Average speed", fmtSpeedKmh(s.avgSpeedKmh));
+  addRow(dl, "Average power", `${Math.round(s.avgPower || 0)} W`);
+  addRow(dl, "Average cadence", `${Math.round(s.avgCadence || 0)} rpm`);
+  if (s.avgHeartRate > 0) addRow(dl, "Average heart rate", `${Math.round(s.avgHeartRate)} bpm`);
+  addRow(dl, "Top speed", fmtSpeedKmh(s.topSpeedKmh));
+  addRow(dl, "Top power", `${Math.round(s.topPower || 0)} W`);
+  addRow(dl, "Top cadence", `${Math.round(s.topCadence || 0)} rpm`);
+  if (s.topHeartRate > 0) addRow(dl, "Top heart rate", `${Math.round(s.topHeartRate)} bpm`);
+  card.append(dl);
+  return card;
+}
+function renderTotals(list) {
+  const dl = $("sess-totals"); dl.innerHTML = "";
+  let dist = 0, dur = 0, cal = 0;
+  for (const s of list) { dist += s.distanceM || 0; dur += s.durationSec || 0; cal += s.calories || 0; }
+  addRow(dl, "Sessions", `${list.length}`);
+  addRow(dl, "Total distance", fmtDistM(dist));
+  addRow(dl, "Total time", fmtDur(dur));
+  addRow(dl, "Total calories", `${Math.round(cal)}`);
+}
+function buildSessNameFilter(all) {
+  const sel = $("sess-name");
+  const cur = sel.value;
+  const names = [...new Set(all.map((s) => s.name).filter(Boolean))].sort();
+  sel.length = 1; // keep "Everyone"
+  for (const n of names) { const o = document.createElement("option"); o.value = n; o.textContent = n; sel.append(o); }
+  if (cur && names.includes(cur)) sel.value = cur;
+  else { const me = getName(); if (me && names.includes(me)) sel.value = me; }
+}
+function renderSavedSessions() {
+  const all = loadSessions();
+  buildSessNameFilter(all);
+  const name = $("sess-name").value;
+  let list = name ? all.filter((s) => (s.name || "") === name) : all.slice();
+  list.sort((a, b) => new Date(b.startedAt || b.savedAt) - new Date(a.startedAt || a.savedAt));
+  renderTotals(list);
+  const box = $("sess-list"); box.innerHTML = "";
+  $("sess-empty").hidden = list.length > 0;
+  for (const s of list) box.append(renderSessionCard(s));
+  const who = name ? `for ${name}` : "for everyone";
+  $("sess-status").textContent = list.length === 1 ? `Showing 1 session ${who}.` : `Showing ${list.length} sessions ${who}.`;
+}
+function clearSessions() {
+  if (!loadSessions().length) { $("sess-status").textContent = "There are no saved sessions to clear."; return; }
+  // window.confirm is a native, fully accessible modal dialog across all AT.
+  if (window.confirm("Delete all saved sessions on this phone? This cannot be undone.")) {
+    localStorage.removeItem("sessions");
+    renderSavedSessions();
+    $("sess-status").textContent = "All saved sessions cleared.";
+  }
+}
+
 /* ---------- Bluetooth ---------- */
 function parseBike(dv) {
   const flags = dv.getUint16(0, true); let o = 2; const out = {};
@@ -415,6 +636,13 @@ function onData(e) {
   if ("energy_kcal" in m) latest.calories_est = m.energy_kcal;
   else if (dt > 0 && dt < 5) latest.calories_est += (latest.power_w * dt) / 4184 / 0.24;
   if (dt > 0 && dt < 5 && latest.speed_kmh > 0) { movingS += dt; latest.elapsed_s = Math.floor(movingS); }
+  // Sample the averages we save (active samples only).
+  if (latest.cadence_rpm > 0) { sessionAccum.cadSum += latest.cadence_rpm; sessionAccum.cadN++; }
+  if (latest.power_w > 0) { sessionAccum.powSum += latest.power_w; sessionAccum.powN++; }
+  if (latest.heart_rate > 0) {
+    sessionAccum.hrSum += latest.heart_rate; sessionAccum.hrN++;
+    if (latest.heart_rate > sessionAccum.hrPeak) sessionAccum.hrPeak = latest.heart_rate;
+  }
   renderMetrics();
   updateSessionBests();
   checkRealtime();
@@ -500,14 +728,19 @@ function init() {
   buildRtToggles();
   resetRealtime();
   renderPersonalBests();
+  renderSavedSessions();
 
   const u = getUnits();
   for (const radio of document.querySelectorAll('input[name="units"]')) {
     radio.checked = radio.value === u;
     radio.addEventListener("change", () => {
-      if (radio.checked) { setUnits(radio.value); lastMilestone = 0; renderMetrics(); renderPersonalBests(); }
+      if (radio.checked) { setUnits(radio.value); lastMilestone = 0; renderMetrics(); renderPersonalBests(); renderSavedSessions(); }
     });
   }
+
+  const nameInput = $("athlete-name");
+  nameInput.value = getName();
+  nameInput.addEventListener("change", () => setName(nameInput.value.trim()));
 
   $("connect").addEventListener("click", connect);
   $("disconnect").addEventListener("click", disconnect);
@@ -515,6 +748,10 @@ function init() {
   $("speaknow").addEventListener("click", announceSummary);
   $("interval").addEventListener("change", startTimer);
   $("pb-reset").addEventListener("click", resetPersonalBests);
+  $("save-session").addEventListener("click", saveSession);
+  $("sess-name").addEventListener("change", renderSavedSessions);
+  $("sess-clear").addEventListener("click", clearSessions);
+  $("sess-details").addEventListener("toggle", (e) => { if (e.target.open) renderSavedSessions(); });
 
   if (!navigator.bluetooth) $("unsupported").hidden = false;
 }
