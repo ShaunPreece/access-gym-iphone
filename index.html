@@ -520,7 +520,9 @@ function saveStatus(text) {
   requestAnimationFrame(() => { r.textContent = text; });
 }
 function saveSession() {
-  if (!latest.connected) { saveStatus("Connect to a machine and do a workout before saving."); return; }
+  // Don't require a live connection: once you've walked away from the machine
+  // it disconnects, but your workout numbers are still held from the last read.
+  // Having no workout data at all is the only thing that should block a save.
   const dur = latest.elapsed_s || 0, dist = latest.distance_m || 0;
   if (dur <= 0 && dist <= 0) { saveStatus("No workout to save yet. Start pedalling first."); return; }
   if (sessionSavedDur >= 0 && dur <= sessionSavedDur) { saveStatus("This session is already saved. Keep going and it will save the extra."); return; }
